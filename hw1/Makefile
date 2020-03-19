@@ -2,7 +2,7 @@ CC = gcc
 SRCS = $(wildcard *.c)
 OBJS = $(SRCS:.c=.o)
 
-all: hw1.o
+all: hw1
 	
 %.o : %.c
 	$(CC) -c $< -o $@

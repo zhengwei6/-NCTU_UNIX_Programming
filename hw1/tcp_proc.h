@@ -11,6 +11,9 @@ typedef struct NET_TCP_4 {
     char inode[10];
 }net_tcp4;
 
-net_tcp4 *create_tcp4_table(char *file_path);
+net_tcp4 *create_tcp4_table(int *total_len, char *file_path);
 
+void print_tcp4_table(const net_tcp4 *tcp_table, const int total_len);
+
+void netstat_tcp4(net_tcp4 *net_table, char *dir_path, const int total_len);
 #endif
