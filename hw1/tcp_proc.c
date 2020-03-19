@@ -3,6 +3,8 @@
 #include <dirent.h>
 #include <string.h>
 #include <unistd.h>
+#include <arpa/inet.h>
+
 #include "tcp_proc.h"
 
 
@@ -39,18 +41,24 @@ net_tcp4 *create_tcp4_table(int *total_len, char *file_path)
     while ((read = getline(&line, &len, fp)) != -1) {
         char *ptr = strtok(line, delim);
         int col_index = 0;
+        char address[8];
+        char port[4];
         while (ptr != NULL) {
             if (col_index == 0) {
                 memset(tcp4_array[table_index].sl, '\0', sizeof(tcp4_array[table_index].sl));
                 strcpy(tcp4_array[table_index].sl, ptr);
             }
             else if (col_index == 1) {
-                memset(tcp4_array[table_index].local_address, '\0', sizeof(tcp4_array[table_index].local_address));
-                strcpy(tcp4_array[table_index].local_address, ptr);
+                strncpy(address, ptr, 8);
+                strncpy(port, ptr + 9, 4);
+                sscanf(address, "%x", &tcp4_array[table_index].local_info.sin_addr.s_addr);
+                sscanf(port, "%hx", &tcp4_array[table_index].local_info.sin_port);
             }
             else if (col_index == 2) {
-                memset(tcp4_array[table_index].rem_address, '\0', sizeof(tcp4_array[table_index].rem_address));
-                strcpy(tcp4_array[table_index].rem_address, ptr);
+                strncpy(address, ptr, 8);
+                strncpy(port, ptr + 9, 4);
+                sscanf(address, "%x", &tcp4_array[table_index].rem_info.sin_addr.s_addr);
+                sscanf(port, "%hx", &tcp4_array[table_index].rem_info.sin_port);
             }
             else if (col_index == 7) {
                 memset(tcp4_array[table_index].uid, '\0', sizeof(tcp4_array[table_index].uid));
@@ -74,15 +82,64 @@ net_tcp4 *create_tcp4_table(int *total_len, char *file_path)
 void print_tcp4_table(const net_tcp4 *tcp_table, const int total_len) 
 {
     int i;
+    char str[100];
+    int port;
+    //inet_ntop(AF_INET, &(sa.sin_addr), str, INET_ADDRSTRLEN);
     for (i = 0 ; i < total_len; i++) {
         printf("%s ",tcp_table[i].sl);
-        printf("%s ",tcp_table[i].local_address);
-        printf("%s ",tcp_table[i].rem_address);
+        inet_ntop(AF_INET, &(tcp_table[i].local_info.sin_addr), str, INET_ADDRSTRLEN);
+        printf("%s:",str);
+        printf("%u ", tcp_table[i].local_info.sin_port);
+        inet_ntop(AF_INET, &(tcp_table[i].rem_info.sin_addr), str, INET_ADDRSTRLEN);
+        printf("%s:",str);
+        printf("%u ", tcp_table[i].rem_info.sin_port);
         printf("%s ",tcp_table[i].uid);
         printf("%s\n",tcp_table[i].inode);
     }
 }
 
+void read_comm_file(char *path) 
+{
+    char *str = NULL;
+    int read;
+    size_t len = 0;
+    FILE *fp  = fopen(path, "r");
+    if (fp == NULL) {
+        return; 
+    }
+    read = getline(&str, &len, fp);
+    str[strlen(str) - 1] = '\0';
+    printf("%s ", str);
+    fclose(fp);
+    return;
+}
+
+void read_cmdline_file(char *path)
+{
+    char *str = NULL;
+    int read;
+    char delim[] = " ";
+    size_t len = 0;
+    FILE *fp  = fopen(path, "r");
+    if (fp == NULL) {
+        return;
+    }
+    read = getline(&str, &len, fp);
+    char *ptr = strtok(str, delim);
+    if (ptr == NULL) {
+        return;
+    }
+    ptr = strtok(NULL, delim);
+    if (ptr == NULL) {
+        return;
+    }
+    while (ptr != NULL) {
+        printf("%s ", ptr);
+        ptr = strtok(NULL, delim);
+    }
+    return;
+
+}
 
 void read_fd(net_tcp4 *net_table, char *dir_path, const int total_len)
 {
@@ -110,19 +167,50 @@ void read_fd(net_tcp4 *net_table, char *dir_path, const int total_len)
         strcat(pathname, pDirent->d_name);
         readlink(pathname, link_buf, 50);
         if (strncmp(link_buf, "socket:", 6) == 0) {
-            
             char *tmptr = &link_buf[8];
-            tmptr[strlen(tmptr)-1] = '\0';
+            tmptr[strlen(tmptr) - 1] = '\0';
             //search table
             for (i = 0 ; i < total_len; i++) {
-                if (strcmp(tmptr,net_table[i].inode) == 0) {
-                    printf("%s\n",tmptr);
+                if (strcmp(tmptr, net_table[i].inode) == 0) {
+                    printf("%-6s","tcp");
+                    // /proc/[pid]/comm
+                    char comm[100];
+                    memset(comm, '\0', 100);
+                    strcpy(comm, dir_path);
+                    strcat(comm,"/comm");
+                    read_comm_file(comm);
+                    // /proc/[pid]/cmdline
+                    char cmdline_path[100];
+                    memset(cmdline_path, '\0', 100);
+                    strcpy(cmdline_path, dir_path);
+                    strcat(cmdline_path,"/cmdline");
+                    read_cmdline_file(cmdline_path);
+                    printf("\n");
                 }
             }
         }
         else if(strncmp(link_buf, "[0000]", 7) == 0) {
-
-        }
+            char *tmptr = &link_buf[7];
+            tmptr[strlen(tmptr) - 1] = '\0';
+            for (i = 0 ; i < total_len ; i++) {
+                if (strcmp(tmptr, net_table[i].inode) == 0) {
+                    printf("%-6s","tcp");
+                    // /proc/[pid]/comm
+                    char comm[100];
+                    memset(comm, '\0', 100);
+                    strcpy(comm, dir_path);
+                    strcat(comm,"/comm");
+                    read_comm_file(comm);
+                    // /proc/[pid]/cmdline
+                    char cmdline_path[100];
+                    memset(cmdline_path, '\0', 100);
+                    strcpy(cmdline_path, dir_path);
+                    strcat(cmdline_path,"/cmdline");
+                    read_cmdline_file(cmdline_path);
+                    printf("\n");
+                }
+            }
+        } 
     }
     return;
 }
@@ -140,7 +228,6 @@ void netstat_tcp4(net_tcp4 *net_table, char *dir_path, const int total_len)
     DIR *pDir;
     pDir = opendir(dir_path);
     if (pDir == NULL) {
-        //printf("Can't open dir\n");
         return;
     }
     while ((pDirent = readdir(pDir)) != NULL) {
@@ -154,12 +241,11 @@ void netstat_tcp4(net_tcp4 *net_table, char *dir_path, const int total_len)
         DIR *tmpDir;
         tmpDir = opendir (buffer);
         if (tmpDir == NULL) {
-            //printf("Can't open sub dir\n");
             continue;
         }
         else {
             //read fd
-            read_fd(net_table,buffer, total_len);
+            read_fd(net_table, buffer, total_len);
         }
         closedir(tmpDir);
     }

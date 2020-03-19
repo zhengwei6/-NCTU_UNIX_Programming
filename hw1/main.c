@@ -12,6 +12,7 @@ int main(int argc, char *argv[]) {
     int dir_table_length;
     int i;
     char **dir_table;
+    printf("%s\n","Proto Local Address           Foreign Address         PID/Program name and arguments");
     // build tcp_table
     net_tcp4 *net_table = create_tcp4_table(&net_table_length, TCP4_PATH);
     if (net_table == NULL) {

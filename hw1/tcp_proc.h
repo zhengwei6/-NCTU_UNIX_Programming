@@ -2,11 +2,11 @@
 #define TCP_PROC_H
 #include <stdio.h>
 #include <dirent.h>
-
+#include <arpa/inet.h>
 typedef struct NET_TCP_4 {
     char sl[4];
-    char local_address[15];
-    char rem_address[15];
+    struct sockaddr_in local_info;
+    struct sockaddr_in rem_info;
     char uid[10];
     char inode[10];
 }net_tcp4;
