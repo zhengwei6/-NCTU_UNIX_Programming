@@ -23,3 +23,4 @@ int main(int argc, char *argv[]) {
     netstat_tcp4(net_table, PROC_DIR, net_table_length);
     return 0;
 }
+char *a = "Local Address           ";

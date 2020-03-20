@@ -41,20 +41,24 @@ net_tcp4 *create_tcp4_table(int *total_len, char *file_path)
     while ((read = getline(&line, &len, fp)) != -1) {
         char *ptr = strtok(line, delim);
         int col_index = 0;
-        char address[8];
-        char port[4];
+        char address[9];
+        char port[5];
         while (ptr != NULL) {
             if (col_index == 0) {
                 memset(tcp4_array[table_index].sl, '\0', sizeof(tcp4_array[table_index].sl));
                 strcpy(tcp4_array[table_index].sl, ptr);
             }
             else if (col_index == 1) {
+                memset(address, '\0', 9);
+                memset(port, '\0', 5);
                 strncpy(address, ptr, 8);
                 strncpy(port, ptr + 9, 4);
                 sscanf(address, "%x", &tcp4_array[table_index].local_info.sin_addr.s_addr);
                 sscanf(port, "%hx", &tcp4_array[table_index].local_info.sin_port);
             }
             else if (col_index == 2) {
+                memset(address, '\0', 9);
+                memset(port, '\0', 5);
                 strncpy(address, ptr, 8);
                 strncpy(port, ptr + 9, 4);
                 sscanf(address, "%x", &tcp4_array[table_index].rem_info.sin_addr.s_addr);
@@ -79,22 +83,24 @@ net_tcp4 *create_tcp4_table(int *total_len, char *file_path)
     
 }
 
-void print_tcp4_table(const net_tcp4 *tcp_table, const int total_len) 
+void print_tcp4_table(net_tcp4 *tcp_table,int total_len) 
 {
     int i;
     char str[100];
     int port;
     //inet_ntop(AF_INET, &(sa.sin_addr), str, INET_ADDRSTRLEN);
     for (i = 0 ; i < total_len; i++) {
-        printf("%s ",tcp_table[i].sl);
+        memset(tcp_table[i].local_address, '\0', 86);
+        memset(tcp_table[i].remote_address, '\0', 86);
+
+        //printf("%s ",tcp_table[i].sl);
         inet_ntop(AF_INET, &(tcp_table[i].local_info.sin_addr), str, INET_ADDRSTRLEN);
-        printf("%s:",str);
-        printf("%u ", tcp_table[i].local_info.sin_port);
+        sprintf(tcp_table[i].local_address, "%s:%hu", str, tcp_table[i].local_info.sin_port);
+        //printf("%hu ", tcp_table[i].local_info.sin_port);
         inet_ntop(AF_INET, &(tcp_table[i].rem_info.sin_addr), str, INET_ADDRSTRLEN);
-        printf("%s:",str);
-        printf("%u ", tcp_table[i].rem_info.sin_port);
-        printf("%s ",tcp_table[i].uid);
-        printf("%s\n",tcp_table[i].inode);
+        sprintf(tcp_table[i].remote_address, "%s:%hu", str, tcp_table[i].rem_info.sin_port);
+        //printf("%s ",tcp_table[i].uid);
+        //printf("%s\n",tcp_table[i].inode);
     }
 }
 
@@ -172,7 +178,9 @@ void read_fd(net_tcp4 *net_table, char *dir_path, const int total_len)
             //search table
             for (i = 0 ; i < total_len; i++) {
                 if (strcmp(tmptr, net_table[i].inode) == 0) {
-                    printf("%-6s","tcp");
+                    printf("%-6s", "tcp");
+                    printf("%-24s", net_table[i].local_address);
+                    printf("%-24s", net_table[i].remote_address);
                     // /proc/[pid]/comm
                     char comm[100];
                     memset(comm, '\0', 100);
