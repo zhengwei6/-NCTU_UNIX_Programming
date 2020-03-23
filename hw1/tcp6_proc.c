@@ -5,8 +5,12 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <inttypes.h>
+#include <regex.h> 
 
 #include "tcp6_proc.h"
+extern int mode;
+extern char filter_str[100];
+extern regex_t regex;
 
 net_tcp6 *create_tcp6_table(int *total_len, char *file_path)
 {
@@ -21,7 +25,6 @@ net_tcp6 *create_tcp6_table(int *total_len, char *file_path)
     // count how many lines in file
     fp = fopen(file_path, "r");
     if (fp == NULL) {
-        printf("open file error\n");
         return tcp6_array; 
     }
     while ((read = getline(&line, &len, fp)) != -1) {
@@ -34,7 +37,6 @@ net_tcp6 *create_tcp6_table(int *total_len, char *file_path)
     // store every line info
     fp = fopen(file_path, "r");
     if (fp == NULL) {
-        printf("open file error\n");
         return tcp6_array; 
     }
     int table_index = 0;
@@ -107,17 +109,34 @@ void tcp6_address_form(net_tcp6 *tcp6_table, int total_len)
     for (i = 0 ; i < total_len; i++) {
         memset(tcp6_table[i].local_address, '\0', 47);
         memset(tcp6_table[i].remote_address, '\0', 47);
-        //printf("%s ",tcp_table[i].sl);
         inet_ntop(AF_INET6, &(tcp6_table[i].local_info.sin6_addr), str, INET6_ADDRSTRLEN);
-        str[17] = '\0';
-        //printf("%s\n", str);
         sprintf(tcp6_table[i].local_address, "%s:%hu", str, tcp6_table[i].local_info.sin6_port);
-        //printf("%hu ", tcp_table[i].local_info.sin_port);
         inet_ntop(AF_INET6, &(tcp6_table[i].rem_info.sin6_addr), str, INET6_ADDRSTRLEN);
-        str[17] = '\0';
         sprintf(tcp6_table[i].remote_address, "%s:%hu", str, tcp6_table[i].rem_info.sin6_port);
-        //printf("%s ",tcp_table[i].uid);
-        //printf("%s\n",tcp_table[i].inode);
+    }
+}
+
+static int check_comm_file(char *path)
+{
+    char *str = NULL;
+    size_t len = 0;
+    FILE *fp  = fopen(path, "r");
+    if (fp == NULL) {
+        return 0; 
+    }
+    if(strlen(filter_str) == 0){
+        return 1;
+    }
+    getline(&str, &len, fp);
+    char *ptr = strstr(str, filter_str);
+    if (regexec(&regex, str, 0, NULL, 0) == 0) {
+        return 1;
+    }
+    if (ptr) {
+        return 1;
+    }
+    else{
+        return 0;
     }
 }
 
@@ -177,7 +196,6 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
     strcat(buffer, "/fd/");
     pDir = opendir (buffer);
     if (pDir == NULL) {
-        //printf("Can't open sub dir\n");
         return;
     }
     while ((pDirent = readdir(pDir)) != NULL) {
@@ -195,9 +213,21 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
             //search table
             for (i = 0 ; i < total_len; i++) {
                 if (strcmp(tmptr, net_table[i].inode) == 0) {
-                    printf("%-6s", "tcp6");
-                    printf("%-24s", net_table[i].local_address);
-                    printf("%-24s", net_table[i].remote_address);
+                    char cmdline_path[100];
+                    memset(cmdline_path, '\0', 100);
+                    strcpy(cmdline_path, dir_path);
+                    strcat(cmdline_path,"/cmdline");
+                    if (check_comm_file(cmdline_path) == 0) {
+                        continue;
+                    }
+                    if (mode == 0) {
+                        printf("%-6s", "tcp6");
+                    }
+                    else {
+                        printf("%-6s", "udp6");
+                    }
+                    printf("%-45s", net_table[i].local_address);
+                    printf("%-45s", net_table[i].remote_address);
                     printf("%s/", pid);
                     // /proc/[pid]/comm
                     char comm[100];
@@ -206,10 +236,6 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
                     strcat(comm,"/comm");
                     read6_comm_file(comm);
                     // /proc/[pid]/cmdline
-                    char cmdline_path[100];
-                    memset(cmdline_path, '\0', 100);
-                    strcpy(cmdline_path, dir_path);
-                    strcat(cmdline_path,"/cmdline");
                     read6_cmdline_file(cmdline_path);
                     printf("\n");
                 }
@@ -220,9 +246,21 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
             tmptr[strlen(tmptr) - 1] = '\0';
             for (i = 0 ; i < total_len ; i++) {
                 if (strcmp(tmptr, net_table[i].inode) == 0) {
-                    printf("%-6s", "tcp6");
-                    printf("%-24s\n", net_table[i].local_address);
-                    printf("%-24s\n", net_table[i].remote_address);
+                    char cmdline_path[100];
+                    memset(cmdline_path, '\0', 100);
+                    strcpy(cmdline_path, dir_path);
+                    strcat(cmdline_path,"/cmdline");
+                    if (check_comm_file(cmdline_path) == 0) {
+                        continue;
+                    }
+                    if (mode == 0) {
+                        printf("%-6s", "tcp6");
+                    }
+                    else {
+                        printf("%-6s", "udp6");
+                    }
+                    printf("%-45s\n", net_table[i].local_address);
+                    printf("%-45s\n", net_table[i].remote_address);
                     printf("%s/", pid);
                     // /proc/[pid]/comm
                     char comm[100];
@@ -231,10 +269,6 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
                     strcat(comm,"/comm");
                     read6_comm_file(comm);
                     // /proc/[pid]/cmdline
-                    char cmdline_path[100];
-                    memset(cmdline_path, '\0', 100);
-                    strcpy(cmdline_path, dir_path);
-                    strcat(cmdline_path,"/cmdline");
                     read6_cmdline_file(cmdline_path);
                     printf("\n");
                 }

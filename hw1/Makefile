@@ -12,6 +12,3 @@ hw1 : $(OBJS)
 
 clean:
 	rm *.o
-
-run:
-	./hw1
