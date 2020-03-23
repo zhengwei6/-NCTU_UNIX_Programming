@@ -26,7 +26,8 @@ int main(int argc, char *argv[]) {
     const char *optstring = "tu";
     struct option opts[] = {
         {"tcp", 0, NULL, 't'},
-        {"udp", 0, NULL, 'u'}
+        {"udp", 0, NULL, 'u'},
+        {0,0,0,0}
     };
     while((c = getopt_long(argc, argv, optstring, opts, &option_index)) != -1) {
         char *tmp_optarg = optarg;
@@ -40,9 +41,21 @@ int main(int argc, char *argv[]) {
         }
     }
     if (argc > select) {
-        strcpy(filter_str, argv[argc-1]);
-        regcomp(&regex, filter_str, 0);
-        
+        if ((argc > 3) && (select == 3)) {
+            strcpy(filter_str, argv[3]);
+            for (int i = 4 ; i < argc; i++) {
+                strcat(filter_str, " ");
+                strcat(filter_str, argv[i]);
+            }
+        }
+        if (argc >= 3 && ((select == 1) || (select == 2))) {
+            strcpy(filter_str, argv[2]);
+            for (int i = 3 ; i < argc ; i++) {
+                strcat(filter_str, " ");
+                strcat(filter_str, argv[i]);
+            }
+        }
+        regcomp(&regex, filter_str, 0);        
     }
 
 
