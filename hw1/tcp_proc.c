@@ -27,9 +27,11 @@ net_tcp4 *create_tcp4_table(int *total_len, char *file_path)
     if (fp == NULL) {
         return tcp4_array; 
     }
+    getline(&line, &len, fp);
     while ((read = getline(&line, &len, fp)) != -1) {
         lines_count += 1;
     }
+
     fclose(fp);
     // malloc net_tcp4
     tcp4_array = (net_tcp4 *)malloc(sizeof(net_tcp4) * lines_count);
@@ -40,6 +42,7 @@ net_tcp4 *create_tcp4_table(int *total_len, char *file_path)
         return tcp4_array; 
     }
     int table_index = 0;
+    getline(&line, &len, fp);
     while ((read = getline(&line, &len, fp)) != -1) {
         char *ptr = strtok(line, delim);
         int col_index = 0;
@@ -79,7 +82,7 @@ net_tcp4 *create_tcp4_table(int *total_len, char *file_path)
         }
         table_index++;
     }
-    
+    fclose(fp);
     *total_len = lines_count;
     return tcp4_array;
     
@@ -180,7 +183,7 @@ void read_fd(net_tcp4 *net_table, char *dir_path, const int total_len, char *pid
     memset(buffer, '\0', 300);
     strcpy(buffer, dir_path);
     strcat(buffer, "/fd/");
-    pDir = opendir (buffer);
+    pDir = opendir(buffer);
     if (pDir == NULL) {
         return;
     }
@@ -193,7 +196,7 @@ void read_fd(net_tcp4 *net_table, char *dir_path, const int total_len, char *pid
         strcpy(pathname,buffer);
         strcat(pathname, pDirent->d_name);
         readlink(pathname, link_buf, 50);
-        if (strncmp(link_buf, "socket:", 6) == 0) {
+        if (strncmp(link_buf, "socket:", 6) == 0 || strncmp(link_buf, "[0000]", 7) == 0) {
             char *tmptr = &link_buf[8];
             tmptr[strlen(tmptr) - 1] = '\0';
             //search table
@@ -228,41 +231,9 @@ void read_fd(net_tcp4 *net_table, char *dir_path, const int total_len, char *pid
                 }
             }
         }
-        else if(strncmp(link_buf, "[0000]", 7) == 0) {
-            char *tmptr = &link_buf[7];
-            tmptr[strlen(tmptr) - 1] = '\0';
-            for (i = 0 ; i < total_len ; i++) {
-                if (strcmp(tmptr, net_table[i].inode) == 0) {
-                    char cmdline_path[100];
-                    memset(cmdline_path, '\0', 100);
-                    strcpy(cmdline_path, dir_path);
-                    strcat(cmdline_path,"/cmdline");
-                    if (check_comm_file(cmdline_path) == 0) {
-                        continue;
-                    }
-                    if (mode == 0) {
-                        printf("%-6s", "tcp");
-                    }
-                    else {
-                        printf("%-6s", "udp");
-                    }
-                    
-                    printf("%-45s", net_table[i].local_address);
-                    printf("%-45s", net_table[i].remote_address);
-                    printf("%s/", pid);
-                    // /proc/[pid]/comm
-                    char comm[100];
-                    memset(comm, '\0', 100);
-                    strcpy(comm, dir_path);
-                    strcat(comm,"/comm");
-                    read_comm_file(comm);
-                    // /proc/[pid]/cmdline
-                    read_cmdline_file(cmdline_path);
-                    printf("\n");
-                }
-            }
-        } 
+       
     }
+    closedir(pDir);
     return;
 }
 
@@ -277,28 +248,28 @@ void netstat_tcp4(net_tcp4 *net_table, char *dir_path, const int total_len)
     char **dir_array = NULL;
     int i;
     DIR *pDir;
+    DIR *tmpDir;
+    char buffer[300];
     pDir = opendir(dir_path);
     if (pDir == NULL) {
         return;
     }
     while ((pDirent = readdir(pDir)) != NULL) {
-        char buffer[300];
         if (check_num(pDirent->d_name) == 0) {
             continue;
         }
         memset(buffer, '\0', 300);
         strcpy(buffer, dir_path);
         strcat(buffer, pDirent->d_name);
-        DIR *tmpDir;
-        tmpDir = opendir (buffer);
+        tmpDir = opendir(buffer);
         if (tmpDir == NULL) {
+            closedir(tmpDir);
             continue;
         }
-        else {
-            //read fd
-            read_fd(net_table, buffer, total_len, pDirent->d_name);
-        }
+        rewinddir(tmpDir);
         closedir(tmpDir);
+        read_fd(net_table, buffer, total_len, pDirent->d_name);
     }
-
+    rewinddir(pDir);
+    closedir(pDir);
 }

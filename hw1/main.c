@@ -3,7 +3,6 @@
 #include <string.h>
 #include <getopt.h>
 #include <regex.h> 
-#include "dir_proc.h"
 #include "tcp_proc.h"
 #include "tcp6_proc.h"
 
@@ -55,6 +54,13 @@ int main(int argc, char *argv[]) {
                 strcat(filter_str, argv[i]);
             }
         }
+        if (argc >= 2 && (select == 0)) {
+            strcpy(filter_str, argv[1]);
+            for (int i = 2 ; i < argc ; i++) {
+                strcat(filter_str, " ");
+                strcat(filter_str, argv[i]);
+            }
+        }
         regcomp(&regex, filter_str, 0);        
     }
 
@@ -66,7 +72,7 @@ int main(int argc, char *argv[]) {
     net_tcp4 *net_table;
     net_tcp6 *net6_table;
 
-    if ((select & 1) >= 1){
+    if ((select & 1) >= 1 || (select == 0)){
         mode = 0;
         printf("%s\n", "List of TCP connections:");
         printf("%s\n", "Proto Local Address                                "
@@ -90,7 +96,7 @@ int main(int argc, char *argv[]) {
         netstat_tcp6(net6_table, PROC_DIR, net_table_length);
         printf("\n");
     }
-    if ((select & 2) >= 1) {
+    if ((select & 2) >= 1 || (select == 0)) {
         mode = 1;
         printf("%s\n", "List of UDP connections:");
         printf("%s\n", "Proto Local Address                                "

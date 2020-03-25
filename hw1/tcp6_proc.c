@@ -27,6 +27,7 @@ net_tcp6 *create_tcp6_table(int *total_len, char *file_path)
     if (fp == NULL) {
         return tcp6_array; 
     }
+    getline(&line, &len, fp);
     while ((read = getline(&line, &len, fp)) != -1) {
         lines_count += 1;
     }
@@ -40,6 +41,7 @@ net_tcp6 *create_tcp6_table(int *total_len, char *file_path)
         return tcp6_array; 
     }
     int table_index = 0;
+    getline(&line, &len, fp);
     while ((read = getline(&line, &len, fp)) != -1) {
         char *ptr = strtok(line, delim);
         int col_index = 0;
@@ -95,7 +97,7 @@ net_tcp6 *create_tcp6_table(int *total_len, char *file_path)
         }
         table_index++;
     }
-    
+    fclose(fp);
     *total_len = lines_count;
     return tcp6_array;
 }
@@ -194,7 +196,7 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
     memset(buffer, '\0', 300);
     strcpy(buffer, dir_path);
     strcat(buffer, "/fd/");
-    pDir = opendir (buffer);
+    pDir = opendir(buffer);
     if (pDir == NULL) {
         return;
     }
@@ -207,7 +209,7 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
         strcpy(pathname,buffer);
         strcat(pathname, pDirent->d_name);
         readlink(pathname, link_buf, 50);
-        if (strncmp(link_buf, "socket:", 6) == 0) {
+        if (strncmp(link_buf, "socket:", 6) == 0 || strncmp(link_buf, "[0000]", 7) == 0) {
             char *tmptr = &link_buf[8];
             tmptr[strlen(tmptr) - 1] = '\0';
             //search table
@@ -241,40 +243,9 @@ void read6_fd(net_tcp6 *net_table, char *dir_path, const int total_len, char *pi
                 }
             }
         }
-        else if(strncmp(link_buf, "[0000]", 7) == 0) {
-            char *tmptr = &link_buf[7];
-            tmptr[strlen(tmptr) - 1] = '\0';
-            for (i = 0 ; i < total_len ; i++) {
-                if (strcmp(tmptr, net_table[i].inode) == 0) {
-                    char cmdline_path[100];
-                    memset(cmdline_path, '\0', 100);
-                    strcpy(cmdline_path, dir_path);
-                    strcat(cmdline_path,"/cmdline");
-                    if (check_comm_file(cmdline_path) == 0) {
-                        continue;
-                    }
-                    if (mode == 0) {
-                        printf("%-6s", "tcp6");
-                    }
-                    else {
-                        printf("%-6s", "udp6");
-                    }
-                    printf("%-45s\n", net_table[i].local_address);
-                    printf("%-45s\n", net_table[i].remote_address);
-                    printf("%s/", pid);
-                    // /proc/[pid]/comm
-                    char comm[100];
-                    memset(comm, '\0', 100);
-                    strcpy(comm, dir_path);
-                    strcat(comm,"/comm");
-                    read6_comm_file(comm);
-                    // /proc/[pid]/cmdline
-                    read6_cmdline_file(cmdline_path);
-                    printf("\n");
-                }
-            }
-        } 
+        
     }
+    closedir(pDir);
     return;
 }
 
@@ -289,28 +260,29 @@ void netstat_tcp6(net_tcp6 *net_table, char *dir_path, const int total_len)
     char **dir_array = NULL;
     int i;
     DIR *pDir;
+    DIR *tmpDir;
+    char buffer[200];
     pDir = opendir(dir_path);
     if (pDir == NULL) {
         return;
     }
     while ((pDirent = readdir(pDir)) != NULL) {
-        char buffer[300];
         if (check6_num(pDirent->d_name) == 0) {
             continue;
         }
-        memset(buffer, '\0', 300);
+        memset(buffer, '\0', 200);
         strcpy(buffer, dir_path);
         strcat(buffer, pDirent->d_name);
-        DIR *tmpDir;
-        tmpDir = opendir (buffer);
+        tmpDir = opendir(buffer);
         if (tmpDir == NULL) {
+            closedir(tmpDir);
             continue;
         }
-        else {
-            //read fd
-            read6_fd(net_table, buffer, total_len, pDirent->d_name);
-        }
+        rewinddir(tmpDir);
         closedir(tmpDir);
+        //read fd
+        read6_fd(net_table, buffer, total_len, pDirent->d_name);
     }
-
+    rewinddir(pDir);
+    closedir(pDir);
 }
