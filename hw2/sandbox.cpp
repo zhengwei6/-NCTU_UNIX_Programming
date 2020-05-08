@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
     string so_path = "./sandbox.so";
     string dir_path = "./";
     string cmd;
+    int w_flag = 0;
     while (1) {
         cmd_opt = getopt(argc, argv, "p:d:-");
         if (cmd_opt == -1) {
@@ -34,13 +35,15 @@ int main(int argc, char *argv[])
                 break;
             case '?':
                 std::printf("%s",wrong_option.c_str());
+                w_flag = 1;
                 break;
             default:
+                w_flag = 1;
                 std::printf("%s",wrong_option.c_str());
         }
     }
     cmd = "COFDIR=" + dir_path + " LD_PRELOAD=" + so_path + " ";
-    if (argc > optind) {
+    if (argc > optind && (w_flag == 0)) {
         cmd += string(argv[optind]);
         optind++;
         for (int i = optind ; i < argc ; i++) {
@@ -49,7 +52,7 @@ int main(int argc, char *argv[])
         }
         std::system(cmd.c_str());
     }
-    else {
+    else if ( argc <= optind && (w_flag == 0)){
         printf("%s\n", "no command given.");
     }
     

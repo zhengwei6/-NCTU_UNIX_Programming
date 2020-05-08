@@ -53,7 +53,7 @@ void write_to_terminal(char *buf) {
     return;
 }
 
-int ckeck_path(const char *path1, const char *path2) {
+int check_path(const char *path1, const char *path2) {
     return strncmp(path1, path2, strlen(path2));
 }
 
@@ -100,7 +100,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[]) {
 int unlink(const char *pathname) {
     init();
     absolute_path(pathname);
-    if (ckeck_path(pathname, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("unlink", pathname);
         errno = EACCES;
         return -1;
@@ -118,11 +118,11 @@ int symlink(const char *target, const char *linkpath) {
     realpath(target, resolved_path1);
     realpath(linkpath, resolved_path2);
     realpath(conf_dir, cwd);
-    if (ckeck_path(resolved_path1, cwd)) {
+    if (check_path(resolved_path1, cwd)) {
         flag = 1;
         path_not_allowed("symlink", target);
     }
-    if (ckeck_path(resolved_path2, cwd)) {
+    if (check_path(resolved_path2, cwd)) {
         flag = 1;
         path_not_allowed("symlink", linkpath);
     }
@@ -137,19 +137,31 @@ int symlink(const char *target, const char *linkpath) {
 int __xstat(int ver, const char * path, struct stat * stat_buf) {
     init();
     absolute_path(path);
-    if (ckeck_path(path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("__xstat", path);
         errno = EACCES;
         return -1;
     }
-    int ret = (* (int (*)(const char *path, struct stat *buf)) dlsym(RTLD_NEXT, "__xstat"))(path, stat_buf);
+    int ret = (* (int (*)(int ver, const char * path, struct stat * stat_buf)) dlsym(RTLD_NEXT, "__xstat"))(ver, path, stat_buf);
+    return ret;
+}
+
+int __lxstat (int ver, const char * path, struct stat *stat_buf) {
+    init();
+    absolute_path(path);
+    if (check_path(resolved_path, cwd)) {
+        path_not_allowed("__lxstat", path);
+        errno = EACCES;
+        return -1;
+    }
+    int ret = (* (int (*)(int ver, const char * path, struct stat * stat_buf)) dlsym(RTLD_NEXT, "__lxstat"))(ver, path, stat_buf);
     return ret;
 }
 
 int stat(const char *path, struct stat *buf) {
     init();
     absolute_path(path);
-    if (ckeck_path(path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("stat", path);
         errno = EACCES;
         return -1;
@@ -161,7 +173,7 @@ int stat(const char *path, struct stat *buf) {
 int rmdir(const char *pathname) {
     init();
     absolute_path(pathname);
-    if (ckeck_path(pathname, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("rmdir", pathname);
         errno = EACCES;
         return -1;
@@ -179,11 +191,11 @@ int rename(const char *oldpath, const char *newpath) {
     realpath(oldpath, resolved_path1);
     realpath(newpath, resolved_path2);
     realpath(conf_dir, cwd);
-    if (ckeck_path(resolved_path1, cwd)) {
+    if (check_path(resolved_path1, cwd)) {
         flag = 1;
         path_not_allowed("rename", oldpath);
     }
-    if (ckeck_path(resolved_path2, cwd)) {
+    if (check_path(resolved_path2, cwd)) {
         flag = 1;
         path_not_allowed("rename", newpath);
     }
@@ -198,7 +210,7 @@ int rename(const char *oldpath, const char *newpath) {
 int remove(const char *pathname) {
     init();
     absolute_path(pathname);
-    if (ckeck_path(pathname, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("remove", pathname);
         errno = EACCES;
         return -1;
@@ -210,7 +222,7 @@ int remove(const char *pathname) {
 ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
     init();
     absolute_path(path);
-    if (ckeck_path(path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("readlink", path);
         errno = EACCES;
         return -1;
@@ -223,7 +235,7 @@ ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
 DIR *opendir(const char *name) {
     init();
     absolute_path(name);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("opendir", name);
         errno = EACCES;
         return NULL;
@@ -259,7 +271,7 @@ int openat(int dirfd, const char *pathname, int flags, ...) {
         strcpy(path, pathname);
     }
     absolute_path(path);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("openat",path);
         errno = EACCES;
         return -1;
@@ -282,7 +294,7 @@ int open(const char *pathname, int flags, ...) {
 	va_end(al);
     absolute_path(pathname);
     int ret;
-    if (ckeck_path(pathname, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("open",pathname);
         errno = EACCES;
         return -1;
@@ -299,7 +311,7 @@ int open(const char *pathname, int flags, ...) {
 int mkdir(const char *pathname, mode_t mode) {
     init();
     absolute_path(pathname);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("mkdir",pathname);
         errno = EACCES;
         return -1;
@@ -317,11 +329,11 @@ int link(const char *oldpath, const char *newpath) {
     realpath(oldpath, resolved_path1);
     realpath(newpath, resolved_path2);
     realpath(conf_dir, cwd);
-    if (ckeck_path(resolved_path1, cwd)) {
+    if (check_path(resolved_path1, cwd)) {
         flag = 1;
         path_not_allowed("link", oldpath);
     }
-    if (ckeck_path(resolved_path2, cwd)) {
+    if (check_path(resolved_path2, cwd)) {
         flag = 1;
         path_not_allowed("link", newpath);
     }
@@ -336,7 +348,7 @@ int link(const char *oldpath, const char *newpath) {
 FILE *fopen(const char *pathname, const char *mode) {
     init();
     absolute_path(pathname);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("fopen",pathname);
         errno = EACCES;
         return NULL;
@@ -348,7 +360,7 @@ FILE *fopen(const char *pathname, const char *mode) {
 int creat(const char *path, mode_t mode) {
     init();
     absolute_path(path);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("create",path);
         errno = EACCES;
         return -1;
@@ -360,7 +372,7 @@ int creat(const char *path, mode_t mode) {
 int chown(const char *pathname, uid_t owner, gid_t group) {
     init();
     absolute_path(pathname);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("chown",pathname);
         errno = EACCES;
         return -1;
@@ -372,7 +384,7 @@ int chown(const char *pathname, uid_t owner, gid_t group) {
 int chmod(const char *pathname, mode_t mode) {
     init();
     absolute_path(pathname);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("chmod",pathname);
         errno = EACCES;
         return -1;
@@ -384,7 +396,7 @@ int chmod(const char *pathname, mode_t mode) {
 int chdir(const char *path) {
     init();
     absolute_path(path);
-    if (ckeck_path(resolved_path, cwd)) {
+    if (check_path(resolved_path, cwd)) {
         path_not_allowed("chdir", path);
         errno = EACCES;
         return -1;
