@@ -1,0 +1,14 @@
+#define path_not_allowed(func_name, path) \
+        write(write_fd, "[sandbox] ", 11); \
+        write(write_fd, func_name, sizeof(func_name));\
+        write(write_fd, ": access to  ", 14); \
+        write(write_fd, path, sizeof(path));\
+        write(write_fd, " is not allowed\n", 17)
+
+#define exc_not_allowed(func_name, path) \
+        write(write_fd, "[sandbox] ", 11); \
+        write(write_fd, func_name, sizeof(func_name));\
+        write(write_fd, "(", 1); \
+        write(write_fd, path, sizeof(path));\
+        write(write_fd, ")", 1); \
+        write(write_fd, ": not allowed\n", 15)
