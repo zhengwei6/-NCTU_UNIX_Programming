@@ -361,11 +361,11 @@ int creat(const char *path, mode_t mode) {
     init();
     absolute_path(path);
     if (check_path(resolved_path, cwd)) {
-        path_not_allowed("create",path);
+        path_not_allowed("creat",path);
         errno = EACCES;
         return -1;
     }
-    int ret = (* (int (*)(const char *path, mode_t mode)) dlsym(RTLD_NEXT, "create"))(path, mode);
+    int ret = (* (int (*)(const char *path, mode_t mode)) dlsym(RTLD_NEXT, "creat"))(path, mode);
     return ret;
 }
 
